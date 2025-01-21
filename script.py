@@ -8,7 +8,6 @@ import logging
 from requests.exceptions import ConnectionError
 from telebot.apihelper import ApiException
 import os
-import vpn
 
 genai.configure(api_key="AIzaSyAnGBWeiaRtdH8PvFbBK-XDK2C5ondAbwM")
 
@@ -114,67 +113,33 @@ def send_update_to_telegram(message):
     max_retries = 5
     delay = 10  # ثانیه
 
-    config_url = f"vless://TELEGRAM-NUFiLTER-94fe7d67b02d@NUFiLTER.fastly80-3.hosting-ip.com:80?path=%2Ftelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%3Fed%3D8080&security=none&encryption=none&host=6.fidsxss7x.ir&type=ws#%40V2ry_Proxy%20%F0%9F%87%A9%F0%9F%87%AA%20ws5"
+    bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-    client = vpn.V2RayClient(config_url)
+    # Ping Telegram API with retries
+    for attempt in range(max_retries):
+        try:
+            bot.get_me()
+            print("پینگ به تلگرام موفقیت آمیز بود.")
+            break  # Exit the loop if successful
+        except requests.exceptions.RequestException as e:
+            logging.error(f"خطا در پینگ به تلگرام (RequestException): {e}")
+            if attempt < max_retries - 1:
+                print(f"تلاش مجدد برای پینگ در {delay} ثانیه...")
+                time.sleep(delay)
+            else:
+                print("تعداد تلاش‌ها برای پینگ به پایان رسید.")
+                return  # Exit the function if all retries failed
+        except Exception as e:
+            logging.error(f"خطا در پینگ به تلگرام: {e}")
+            return  # Exit the function if a non-request exception occurs
 
-    try:
-        client.connect()
-        if not client.connected:
-            logging.error("Failed to connect to VPN.")
-            return
-
-        bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-
-        # Ping Telegram API with retries
-        for attempt in range(max_retries):
-            try:
-                bot.get_me()
-                print("پینگ به تلگرام موفقیت آمیز بود.")
-                break  # Exit the loop if successful
-            except requests.exceptions.RequestException as e:
-                logging.error(f"خطا در پینگ به تلگرام (RequestException): {e}")
-                if attempt < max_retries - 1:
-                    print(f"تلاش مجدد برای پینگ در {delay} ثانیه...")
-                    time.sleep(delay)
-                else:
-                    print("تعداد تلاش‌ها برای پینگ به پایان رسید.")
-                    return  # Exit the function if all retries failed
-            except Exception as e:
-                logging.error(f"خطا در پینگ به تلگرام: {e}")
-                return  # Exit the function if a non-request exception occurs
-
-        if len(message) > 4096:
-            parts = [message[i : i + 4096] for i in range(0, len(message), 4096)]
-            for part in parts:
-                for attempt in range(max_retries):
-                    try:
-                        bot.send_message(CHAT_ID, part)
-                        print("بخشی از بروزرسانی به تلگرام ارسال شد.")
-                        break  # Exit the inner loop if successful
-                    except (ConnectionError, requests.exceptions.RequestException) as e:
-                        logging.error(
-                            f"خطا در ارسال به تلگرام (ConnectionError/RequestException): {e}"
-                        )
-                        if attempt < max_retries - 1:
-                            print(
-                                f"تلاش مجدد در ارسال پیام به تلگرام در {delay} ثانیه..."
-                            )
-                            time.sleep(delay)
-                        else:
-                            print("تعداد تلاش‌ها به پایان رسید. پیام ارسال نشد.")
-                            break  # Exit the inner loop if all retries failed
-                    except ApiException as e:
-                        logging.error(f"خطا در ارسال به تلگرام (ApiException): {e}")
-                        break  # Exit the inner loop if ApiException occurs
-                    except Exception as e:
-                        logging.error(f"خطا در ارسال به تلگرام: {e}")
-                        break  # Exit the inner loop if a non-request exception occurs
-        else:
+    if len(message) > 4096:
+        parts = [message[i : i + 4096] for i in range(0, len(message), 4096)]
+        for part in parts:
             for attempt in range(max_retries):
                 try:
-                    bot.send_message(CHAT_ID, message)
-                    print("بروزرسانی به تلگرام ارسال شد.")
+                    bot.send_message(CHAT_ID, part)
+                    print("بخشی از بروزرسانی به تلگرام ارسال شد.")
                     break  # Exit the inner loop if successful
                 except (ConnectionError, requests.exceptions.RequestException) as e:
                     logging.error(
@@ -192,8 +157,28 @@ def send_update_to_telegram(message):
                 except Exception as e:
                     logging.error(f"خطا در ارسال به تلگرام: {e}")
                     break  # Exit the inner loop if a non-request exception occurs
-    finally:
-        client.close()
+    else:
+        for attempt in range(max_retries):
+            try:
+                bot.send_message(CHAT_ID, message)
+                print("بروزرسانی به تلگرام ارسال شد.")
+                break  # Exit the inner loop if successful
+            except (ConnectionError, requests.exceptions.RequestException) as e:
+                logging.error(
+                    f"خطا در ارسال به تلگرام (ConnectionError/RequestException): {e}"
+                )
+                if attempt < max_retries - 1:
+                    print(f"تلاش مجدد در ارسال پیام به تلگرام در {delay} ثانیه...")
+                    time.sleep(delay)
+                else:
+                    print("تعداد تلاش‌ها به پایان رسید. پیام ارسال نشد.")
+                    break  # Exit the inner loop if all retries failed
+            except ApiException as e:
+                logging.error(f"خطا در ارسال به تلگرام (ApiException): {e}")
+                break  # Exit the inner loop if ApiException occurs
+            except Exception as e:
+                logging.error(f"خطا در ارسال به تلگرام: {e}")
+                break  # Exit the inner loop if a non-request exception occurs
 
 
 def main():
