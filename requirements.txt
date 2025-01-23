@@ -2,4 +2,3 @@ requests
 google-generativeai
 pyTelegramBotAPI
 python-dotenv
-
